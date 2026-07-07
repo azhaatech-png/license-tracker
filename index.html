@@ -333,14 +333,14 @@
    ======================================================= */
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz52d-eXdmRgjzuSe69mE28OipOBy3EI8hnSD5quVFShz3kDI_stZ2hak3BerEGL0A/exec";
 
-/* Management PIN required to edit/delete a record (change if you like) */
-const MANAGEMENT_PIN = "2523";
-
 const AUTO_REFRESH_MS = 20000; // poll every 20s for near-real-time sync across devices
 
-let records = [];
+let records = [];        // regular table data — never includes profit/costPrice
+let reportRecords = [];  // management-only data — includes profit/costPrice, fetched only after PIN check
+let reportPin = null;    // held only while the report stays unlocked this session
+let currentManagementPin = null; // held briefly while editing an existing entry
 let editingId = null;
-let pendingAction = null; // {type:'edit'|'delete', id}
+let pendingAction = null; // {type:'edit'|'delete'|'report', id}
 
 const $ = id => document.getElementById(id);
 
@@ -368,11 +368,25 @@ function isConfigured(){
   return APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf("https://script.google.com") === 0;
 }
 
-async function apiGet(){
-  const res = await fetch(APPS_SCRIPT_URL, {method:"GET"});
+function normalizeRecord(r){
+  return {
+    ...r,
+    qty: Number(r.qty)||0,
+    costPrice: (r.costPrice===undefined || r.costPrice==="") ? null : Number(r.costPrice),
+    price: Number(r.price)||0,
+    total: Number(r.total)||0,
+    profit: r.profit===undefined ? undefined : Number(r.profit),
+    createdAt: Number(r.createdAt)||0
+  };
+}
+
+// pin is optional — only management requests pass it, to receive profit/costPrice back
+async function apiGet(pin){
+  const url = pin ? (APPS_SCRIPT_URL + "?pin=" + encodeURIComponent(pin)) : APPS_SCRIPT_URL;
+  const res = await fetch(url, {method:"GET"});
   const data = await res.json();
   if(!data.success) throw new Error(data.error||"Unknown error");
-  return data.records || [];
+  return data; // {success, records, authorized}
 }
 
 // Uses text/plain to avoid a CORS preflight against Apps Script
@@ -396,16 +410,8 @@ async function loadRecords(silent){
   }
   if(!silent) $("loadingNote").style.display = "block";
   try{
-    const list = await apiGet();
-    records = list.map(r => ({
-      ...r,
-      qty: Number(r.qty)||0,
-      costPrice: r.costPrice === "" ? null : Number(r.costPrice),
-      price: Number(r.price)||0,
-      total: Number(r.total)||0,
-      profit: Number(r.profit)||0,
-      createdAt: Number(r.createdAt)||0
-    }));
+    const data = await apiGet();
+    records = (data.records||[]).map(normalizeRecord);
     records.sort((a,b)=> (b.date||"").localeCompare(a.date||"") || b.createdAt-a.createdAt);
     setSync(true, "Synced — " + new Date().toLocaleTimeString());
   }catch(e){
@@ -415,7 +421,17 @@ async function loadRecords(silent){
   }
   $("loadingNote").style.display = "none";
   render();
-  if(reportUnlockedFlag) renderReport();
+
+  // Keep the management report fresh too, but only if it's currently unlocked
+  if(reportUnlockedFlag && reportPin){
+    try{
+      const rdata = await apiGet(reportPin);
+      if(rdata.authorized){
+        reportRecords = (rdata.records||[]).map(normalizeRecord);
+        renderReport();
+      }
+    }catch(e){ /* silent — keep showing last known report data */ }
+  }
 }
 
 function calcLive(){
@@ -439,6 +455,7 @@ function resetForm(){
   $("f_date").value = new Date().toISOString().slice(0,10);
   $("f_qty").value = 1;
   editingId = null;
+  currentManagementPin = null;
   $("submitBtn").textContent = "Add Entry";
   $("cancelEdit").style.display = "none";
   calcLive();
@@ -474,21 +491,23 @@ $("entryForm").addEventListener("submit", async (e)=>{
   const btn = $("submitBtn");
   btn.disabled = true; btn.textContent = "Saving…";
   try{
-    await apiPost({ action: editingId ? "update" : "add", record: rec });
+    const payload = { action: editingId ? "update" : "add", record: rec };
+    if(editingId) payload.pin = currentManagementPin;
+    await apiPost(payload);
     showToast(editingId ? "Entry updated" : "Entry added");
     resetForm();
     await loadRecords(true);
   }catch(err){
     console.error(err);
-    showToast("Save failed — check connection");
+    if(err.message === "Invalid PIN") showToast("Session expired — please try editing again");
+    else showToast("Save failed — check connection");
   }
   btn.disabled = false;
 });
 
-function editEntry(id){
-  const r = records.find(x=>x.id===id);
+function editEntry(r){
   if(!r) return;
-  editingId = id;
+  editingId = r.id;
   $("f_date").value = r.date;
   $("f_invoice").value = r.invoice;
   $("f_product").value = r.product;
@@ -506,18 +525,8 @@ function editEntry(id){
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-async function removeEntry(id){
-  if(!confirm("Delete this entry? This cannot be undone.")) return;
-  try{
-    await apiPost({ action:"delete", id });
-    showToast("Entry deleted");
-    await loadRecords(true);
-  }catch(e){
-    showToast("Delete failed — check connection");
-  }
-}
-
-// PIN gate for edit/delete
+// PIN gate for edit/delete/report — the PIN itself is checked by the Apps Script
+// backend, never compared in this file, so it can't be read from page source.
 function requestPin(type, id){
   pendingAction = {type, id};
   $("pinInput").value = "";
@@ -527,22 +536,50 @@ function requestPin(type, id){
 $("pinCancel").addEventListener("click", ()=>{ $("pinOverlay").style.display="none"; pendingAction=null; });
 $("pinConfirm").addEventListener("click", confirmPin);
 $("pinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") confirmPin(); });
-function confirmPin(){
-  if($("pinInput").value === MANAGEMENT_PIN){
-    $("pinOverlay").style.display = "none";
-    const action = pendingAction;
-    pendingAction = null;
-    if(action.type==="edit") editEntry(action.id);
-    else if(action.type==="delete") removeEntry(action.id);
-    else if(action.type==="report"){
+
+async function confirmPin(){
+  const pin = $("pinInput").value;
+  const action = pendingAction;
+  if(!action || !pin) return;
+  $("pinConfirm").disabled = true;
+
+  try{
+    if(action.type === "delete"){
+      await apiPost({ action:"delete", id: action.id, pin });
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      showToast("Entry deleted");
+      await loadRecords(true);
+
+    } else if(action.type === "edit"){
+      const verify = await apiPost({ action:"verifyPin", pin });
+      if(!verify.authorized){ showToast("Incorrect PIN"); $("pinConfirm").disabled = false; return; }
+      const data = await apiGet(pin);
+      const full = (data.records||[]).map(normalizeRecord).find(x=>x.id===action.id);
+      if(!full){ showToast("Record not found"); $("pinConfirm").disabled = false; return; }
+      currentManagementPin = pin;
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      editEntry(full);
+
+    } else if(action.type === "report"){
+      const data = await apiGet(pin);
+      if(!data.authorized){ showToast("Incorrect PIN"); $("pinConfirm").disabled = false; return; }
+      reportRecords = (data.records||[]).map(normalizeRecord);
+      reportPin = pin;
       reportUnlockedFlag = true;
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
       $("reportLocked").style.display = "none";
       $("reportUnlocked").style.display = "block";
       renderReport();
     }
-  } else {
-    showToast("Incorrect PIN");
+  }catch(err){
+    console.error(err);
+    if(err.message === "Invalid PIN") showToast("Incorrect PIN");
+    else showToast("Connection error — try again");
   }
+  $("pinConfirm").disabled = false;
 }
 
 function applyFilters(list){
@@ -590,7 +627,9 @@ function render(){
       tbody.appendChild(tr);
     }
     tbody.querySelectorAll("[data-edit]").forEach(b=> b.addEventListener("click", ()=>requestPin("edit", b.dataset.edit)));
-    tbody.querySelectorAll("[data-del]").forEach(b=> b.addEventListener("click", ()=>requestPin("delete", b.dataset.del)));
+    tbody.querySelectorAll("[data-del]").forEach(b=> b.addEventListener("click", ()=>{
+      if(confirm("Delete this entry? This cannot be undone.")) requestPin("delete", b.dataset.del);
+    }));
   }
 
   const totalSale = records.reduce((s,r)=>s+(r.total||0),0);
@@ -609,6 +648,7 @@ let reportUnlockedFlag = false;
 $("unlockReportBtn").addEventListener("click", ()=>requestPin("report", null));
 $("lockReportBtn").addEventListener("click", ()=>{
   reportUnlockedFlag = false;
+  reportPin = null;
   $("reportLocked").style.display = "block";
   $("reportUnlocked").style.display = "none";
 });
@@ -625,7 +665,7 @@ function monthLabel(key){
 }
 
 function buildMonthOptions(){
-  const keys = Array.from(new Set(records.map(r=>monthKey(r.date)))).filter(Boolean).sort().reverse();
+  const keys = Array.from(new Set(reportRecords.map(r=>monthKey(r.date)))).filter(Boolean).sort().reverse();
   const sel = $("reportMonth");
   const current = sel.value;
   sel.innerHTML = "";
@@ -645,7 +685,7 @@ function renderReport(){
   if(!reportUnlockedFlag) return;
   buildMonthOptionsIfNeeded();
   const selectedMonth = $("reportMonth").value;
-  const scoped = selectedMonth ? records.filter(r=>monthKey(r.date)===selectedMonth) : records;
+  const scoped = selectedMonth ? reportRecords.filter(r=>monthKey(r.date)===selectedMonth) : reportRecords;
 
   const totalSale = scoped.reduce((s,r)=>s+(r.total||0),0);
   const totalProfit = scoped.reduce((s,r)=>s+(r.profit||0),0);
@@ -677,7 +717,7 @@ function renderReport(){
 
   // all months summary (always full dataset, unaffected by selected month)
   const byMonth = {};
-  records.forEach(r=>{
+  reportRecords.forEach(r=>{
     const key = monthKey(r.date) || "Unknown";
     if(!byMonth[key]) byMonth[key] = {count:0, sale:0, profit:0};
     byMonth[key].count++;
