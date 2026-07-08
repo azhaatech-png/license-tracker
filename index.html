@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Al Azha — License Sales &amp; Purchase Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --navy: #0b2e3d;
+    --navy-deep: #071f2b;
+    --teal: #0f8b8d;
+    --teal-bright: #14b8bb;
+    --paper: #f4f7f6;
+    --card: #ffffff;
+    --ink: #10262d;
+    --muted: #6b8087;
+    --line: #e1e8e7;
+    --paid: #1d8a5f;
+    --pending: #c2792c;
+    --partial: #2f6fb0;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Segoe UI','Noto Sans Malayalam',system-ui,-apple-system,sans-serif;}
+  .app{max-width:1100px;margin:0 auto;padding:0 0 60px;}
+
+  header.top{
+    background: linear-gradient(120deg, var(--navy-deep), var(--navy) 60%, var(--teal) 130%);
+    color:#fff;padding:28px 24px 20px;position:relative;overflow:hidden;
+  }
+  header.top::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;
+    background:radial-gradient(circle, rgba(20,184,187,0.35), transparent 70%);}
+  .brand-row{display:flex;align-items:center;gap:14px;position:relative;z-index:1;}
+  .brand-mark{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg, var(--teal-bright), var(--navy));
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);}
+  header.top h1{margin:0;font-size:1.25rem;font-weight:700;}
+  header.top .sub{margin:2px 0 0;font-size:0.82rem;color:#bfe3e2;}
+  .sync-badge{
+    display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+    font-size:0.75rem; color:#cdeceb; position:relative; z-index:1;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:#3ddc97;}
+  .dot.offline{background:#e0a75e;}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:18px;position:relative;z-index:1;}
+  .stat{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:12px 14px;}
+  .stat .num{font-size:1.35rem;font-weight:700;line-height:1.1;}
+  .stat .lbl{font-size:0.72rem;color:#bcdedc;margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;}
+
+  .tabs{
+    display:flex; gap:6px; position:relative; z-index:1; margin-top:20px;
+  }
+  .tab-btn{
+    background:rgba(255,255,255,0.08); color:#cdeceb; border:1px solid rgba(255,255,255,0.2);
+    padding:9px 20px; border-radius:9px 9px 0 0; font-weight:700; font-size:0.85rem; cursor:pointer;
+    border-bottom:none;
+  }
+  .tab-btn.active{ background:var(--paper); color:var(--navy-deep); }
+
+  main{padding:22px 20px 0;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px;
+    box-shadow:0 1px 3px rgba(11,46,61,0.05);}
+  .panel h2{margin:0 0 16px;font-size:1rem;color:var(--navy-deep);display:flex;align-items:center;gap:8px;}
+  .panel h2 .tag{width:6px;height:16px;border-radius:3px;background:var(--teal-bright);display:inline-block;}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  @media (max-width:760px){.grid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:480px){.grid{grid-template-columns:1fr;}}
+
+  .field label{display:block;font-size:0.74rem;color:var(--muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select{width:100%;padding:9px 10px;border-radius:8px;border:1.5px solid var(--line);
+    font-size:0.92rem;color:var(--ink);background:#fbfdfd;font-family:inherit;}
+  .field input:focus, .field select:focus{outline:none;border-color:var(--teal-bright);box-shadow:0 0 0 3px rgba(20,184,187,0.15);}
+  .field.span2{grid-column:span 2;}
+  @media (max-width:480px){.field.span2{grid-column:span 1;}}
+
+  .calc-row{grid-column:1/-1;display:flex;gap:20px;flex-wrap:wrap;background:#f0f7f6;border-radius:10px;padding:12px 14px;
+    margin-top:2px;border:1px dashed var(--teal);}
+  .calc-item{font-size:0.85rem;color:var(--navy-deep);}
+  .calc-item b{color:var(--teal);font-size:1rem;}
+
+  .actions{display:flex;gap:10px;margin-top:16px;grid-column:1/-1;}
+  button{cursor:pointer;border:none;font-family:inherit;font-weight:600;font-size:0.9rem;border-radius:8px;
+    padding:10px 20px;transition:transform 0.1s ease;}
+  button:active{transform:scale(0.97);}
+  button:disabled{opacity:0.6;cursor:not-allowed;}
+  .btn-primary{background:var(--teal-bright);color:#fff;box-shadow:0 3px 10px rgba(20,184,187,0.35);}
+  .btn-primary:hover{background:var(--teal);}
+  .btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--muted);}
+  .btn-danger-text{background:none;color:#b3432f;font-size:0.78rem;padding:4px 8px;}
+  .btn-icon-refresh{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);
+    padding:6px 14px;font-size:0.78rem;position:relative;z-index:1;margin-top:10px;}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+  .filters select, .filters input{padding:7px 10px;border-radius:8px;border:1.5px solid var(--line);
+    font-size:0.85rem;font-family:inherit;background:#fbfdfd;}
+
+  table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+  thead th{text-align:left;padding:9px 10px;color:var(--muted);font-weight:700;text-transform:uppercase;
+    font-size:0.68rem;letter-spacing:0.4px;border-bottom:2px solid var(--line);white-space:nowrap;}
+  tbody td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:hover{background:#f7fbfa;}
+  .remarks-cell{max-width:150px;color:var(--muted);font-size:0.8rem;}
+  .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;}
+  .pill.paid{background:#e1f5ec;color:var(--paid);}
+  .pill.pending{background:#fbe9d9;color:var(--pending);}
+  .pill.partial{background:#e2edf9;color:var(--partial);}
+  .profit-pos{color:var(--paid);font-weight:700;}
+  .empty{padding:40px 10px;text-align:center;color:var(--muted);}
+  .empty .big{font-size:2rem;margin-bottom:6px;}
+  .table-wrap{overflow-x:auto;}
+  .loading-note{font-size:0.8rem;color:var(--muted);padding:8px 2px;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy-deep);color:#fff;
+    padding:10px 22px;border-radius:24px;font-size:0.85rem;box-shadow:0 6px 20px rgba(0,0,0,0.25);z-index:99;
+    opacity:0;pointer-events:none;transition:opacity 0.25s ease, transform 0.25s ease;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .config-warning{
+    background:#fff3e0;border:1px solid #e0a75e;color:#7a4a12;padding:14px 18px;border-radius:10px;
+    margin:16px 20px 0; font-size:0.85rem; line-height:1.5;
+  }
+  .config-warning code{background:#fff;padding:1px 5px;border-radius:4px;}
+
+  .pin-overlay{
+    position:fixed; inset:0; background:rgba(7,31,43,0.75); display:flex; align-items:center; justify-content:center;
+    z-index:200; padding:20px;
+  }
+  .pin-box{background:#fff;border-radius:14px;padding:26px;max-width:320px;width:100%;text-align:center;}
+  .pin-box input{width:100%;padding:12px;font-size:1.4rem;text-align:center;letter-spacing:6px;border-radius:8px;
+    border:1.5px solid var(--line);margin:14px 0;}
+
+  .locked-screen{
+    text-align:center; padding:50px 20px; color:var(--muted);
+  }
+  .locked-screen .big{font-size:2.4rem;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand-row">
+      <div class="brand-mark">A</div>
+      <div>
+        <h1 id="pageTitle">License Sales Tracker</h1>
+        <p class="sub">Al Azha Computer Trading LLC — Windows / MS Office / Software Licenses</p>
+      </div>
+    </div>
+    <div class="sync-badge"><span class="dot" id="syncDot"></span><span id="syncText">Connecting…</span></div>
+    <div class="stats" id="statsRow">
+      <div class="stat"><div class="num" id="statTotalSale">AED 0</div><div class="lbl">Total Sale</div></div>
+      <div class="stat"><div class="num" id="statPending">AED 0</div><div class="lbl">Pending Payment</div></div>
+      <div class="stat"><div class="num" id="statCount">0</div><div class="lbl">Total Entries</div></div>
+    </div>
+    <button class="btn-icon-refresh" id="refreshBtn">↻ Refresh Now</button>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tabBtnSales">Sales</button>
+      <button class="tab-btn" id="tabBtnPurchase">🔒 Purchase</button>
+    </div>
+  </header>
+
+  <div class="config-warning" id="configWarning" style="display:none;">
+    ⚠️ Setup incomplete: open this file and set <code>APPS_SCRIPT_URL</code> at the top of the <code>&lt;script&gt;</code>
+    section to your deployed Google Apps Script Web App URL.
+  </div>
+
+  <main>
+    <!-- ============== SALES TAB ============== -->
+    <section class="tab-panel active" id="tabSales">
+
+      <section class="panel">
+        <h2><span class="tag"></span> New License Sale Entry</h2>
+        <form id="entryForm">
+          <div class="grid">
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="f_date" required>
+            </div>
+            <div class="field">
+              <label>Invoice No.</label>
+              <input type="text" id="f_invoice" placeholder="e.g. INV-2026-0451" required>
+            </div>
+            <div class="field span2">
+              <label>Product</label>
+              <input type="text" id="f_product" placeholder="e.g. Windows 11 Pro OEM" required>
+            </div>
+
+            <div class="field">
+              <label>License Type</label>
+              <select id="f_licensetype" required>
+                <option value="">Select</option>
+                <option>Windows 10 Pro</option>
+                <option>Windows 10 Home</option>
+                <option>Windows 11 Pro</option>
+                <option>Windows 11 Home</option>
+                <option>MS Office Home & Student</option>
+                <option>MS Office Home & Business</option>
+                <option>MS Office Professional</option>
+                <option>MS Office 365 (1 Year)</option>
+                <option>Windows Server</option>
+                <option>Antivirus</option>
+                <option>Other Software</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Qty</label>
+              <input type="number" id="f_qty" min="1" value="1" required>
+            </div>
+            <div class="field">
+              <label>Salesman</label>
+              <select id="f_salesman" required>
+                <option value="">Select</option>
+                <option>Noufal</option>
+                <option>Navas</option>
+                <option>Riyas</option>
+                <option>Niyas Babu</option>
+                <option>Faisal</option>
+                <option>Niyas Technician</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Payment Status</label>
+              <select id="f_status" required>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Cost Price / Unit (AED)</label>
+              <input type="number" id="f_cost" min="0" step="0.01" placeholder="optional — for auto profit">
+            </div>
+            <div class="field">
+              <label>Selling Price / Unit (AED)</label>
+              <input type="number" id="f_price" min="0" step="0.01" required>
+            </div>
+            <div class="field span2">
+              <label>Remarks</label>
+              <input type="text" id="f_remarks" placeholder="optional notes">
+            </div>
+
+            <div class="calc-row">
+              <div class="calc-item">Total Sale: <b id="calcTotal">AED 0.00</b></div>
+              <div class="calc-item">Est. Profit: <b id="calcProfit">AED 0.00</b></div>
+              <div class="calc-item" style="color:var(--muted);font-size:0.78rem;">Leave Cost Price empty to enter Profit manually below.</div>
+            </div>
+            <div class="field span2" id="manualProfitWrap">
+              <label>Profit (AED) — manual override</label>
+              <input type="number" id="f_profitManual" step="0.01" placeholder="only if not using cost price above">
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="btn-primary" id="submitBtn">Add Entry</button>
+              <button type="button" class="btn-ghost" id="cancelEdit" style="display:none;">Cancel Edit</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="reportPanel">
+        <h2><span class="tag"></span> Monthly Profit Report
+          <span style="font-size:0.7rem;color:var(--muted);font-weight:600;text-transform:none;">— Management Only</span>
+        </h2>
+        <div id="reportLocked">
+          <button class="btn-ghost" id="unlockReportBtn">🔒 Enter PIN to view profit report</button>
+        </div>
+        <div id="reportUnlocked" style="display:none;">
+          <div class="filters">
+            <select id="reportMonth"></select>
+            <button class="btn-ghost" id="lockReportBtn" style="margin-left:auto;">🔒 Hide report</button>
+          </div>
+          <div class="stats" style="margin:4px 0 18px;">
+            <div class="stat" style="background:#0b2e3d1a;border:1px solid var(--line);">
+              <div class="num" id="repTotalSale" style="color:var(--navy-deep);">AED 0</div>
+              <div class="lbl" style="color:var(--muted);">Sale (selected month)</div>
+            </div>
+            <div class="stat" style="background:#0b2e3d1a;border:1px solid var(--line);">
+              <div class="num" id="repTotalProfit" style="color:var(--teal);">AED 0</div>
+              <div class="lbl" style="color:var(--muted);">Profit (selected month)</div>
+            </div>
+            <div class="stat" style="background:#0b2e3d1a;border:1px solid var(--line);">
+              <div class="num" id="repCount" style="color:var(--navy-deep);">0</div>
+              <div class="lbl" style="color:var(--muted);">Entries</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Salesman</th><th>Entries</th><th>Total Sale</th><th>Total Profit</th></tr></thead>
+              <tbody id="repBySalesman"></tbody>
+            </table>
+          </div>
+          <h3 style="font-size:0.85rem;color:var(--navy-deep);margin:22px 0 10px;">All Months</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Month</th><th>Entries</th><th>Total Sale</th><th>Total Profit</th></tr></thead>
+              <tbody id="repAllMonths"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2><span class="tag"></span> Sales Records</h2>
+        <div class="filters">
+          <select id="filterSalesman">
+            <option value="">All Salesmen</option>
+            <option>Noufal</option><option>Navas</option><option>Riyas</option>
+            <option>Niyas Babu</option><option>Faisal</option><option>Niyas Technician</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">All Payment Status</option>
+            <option>Paid</option><option>Pending</option><option>Partial</option>
+          </select>
+          <input type="text" id="filterSearch" placeholder="Search invoice / product...">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th><th>Invoice</th><th>Product</th><th>Type</th><th>Qty</th>
+                <th>Salesman</th><th>Total Sale</th><th>Status</th><th>Remarks</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+          <div id="emptyState" class="empty" style="display:none;">
+            <div class="big">📄</div>
+            No license sales recorded yet. Add your first entry above.
+          </div>
+          <div class="loading-note" id="loadingNote">Loading records…</div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============== PURCHASE TAB ============== -->
+    <section class="tab-panel" id="tabPurchase">
+      <section class="panel" id="purchaseLockedPanel">
+        <div class="locked-screen">
+          <div class="big">🔒</div>
+          <h2 style="justify-content:center;">Purchase Section — Management Only</h2>
+          <p>Enter the management PIN to view and record supplier purchases.</p>
+          <button class="btn-primary" id="unlockPurchaseTabBtn">Enter PIN</button>
+        </div>
+      </section>
+
+      <div id="purchaseUnlockedArea" style="display:none;">
+        <section class="panel">
+          <h2>
+            <span class="tag"></span> New Purchase Entry
+            <button class="btn-ghost" id="lockPurchaseBtn" style="margin-left:auto;font-size:0.78rem;">🔒 Lock Purchase Section</button>
+          </h2>
+          <form id="purchaseForm">
+            <div class="grid">
+              <div class="field">
+                <label>Date</label>
+                <input type="date" id="p_date" required>
+              </div>
+              <div class="field">
+                <label>Purchase Invoice No.</label>
+                <input type="text" id="p_invoice" placeholder="supplier invoice #" required>
+              </div>
+              <div class="field span2">
+                <label>Supplier</label>
+                <input type="text" id="p_supplier" placeholder="e.g. Ingram Micro / Local Distributor" required>
+              </div>
+
+              <div class="field span2">
+                <label>Product</label>
+                <input type="text" id="p_product" placeholder="e.g. Windows 11 Pro OEM" required>
+              </div>
+              <div class="field">
+                <label>License Type</label>
+                <select id="p_licensetype" required>
+                  <option value="">Select</option>
+                  <option>Windows 10 Pro</option>
+                  <option>Windows 10 Home</option>
+                  <option>Windows 11 Pro</option>
+                  <option>Windows 11 Home</option>
+                  <option>MS Office Home & Student</option>
+                  <option>MS Office Home & Business</option>
+                  <option>MS Office Professional</option>
+                  <option>MS Office 365 (1 Year)</option>
+                  <option>Windows Server</option>
+                  <option>Antivirus</option>
+                  <option>Other Software</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Qty</label>
+                <input type="number" id="p_qty" min="1" value="1" required>
+              </div>
+
+              <div class="field">
+                <label>Cost Price / Unit (AED)</label>
+                <input type="number" id="p_cost" min="0" step="0.01" required>
+              </div>
+              <div class="field span2">
+                <label>Remarks</label>
+                <input type="text" id="p_remarks" placeholder="optional notes">
+              </div>
+
+              <div class="calc-row">
+                <div class="calc-item">Total Purchase Cost: <b id="pCalcTotal">AED 0.00</b></div>
+              </div>
+
+              <div class="actions">
+                <button type="submit" class="btn-primary" id="purchaseSubmitBtn">Add Purchase</button>
+                <button type="button" class="btn-ghost" id="purchaseCancelEdit" style="display:none;">Cancel Edit</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2><span class="tag"></span> Purchase Records</h2>
+          <div class="stats" style="margin-bottom:14px;">
+            <div class="stat" style="background:#0b2e3d1a;border:1px solid var(--line);">
+              <div class="num" id="purchTotalCost" style="color:var(--navy-deep);">AED 0</div>
+              <div class="lbl" style="color:var(--muted);">Total Purchase Cost</div>
+            </div>
+            <div class="stat" style="background:#0b2e3d1a;border:1px solid var(--line);">
+              <div class="num" id="purchCount" style="color:var(--navy-deep);">0</div>
+              <div class="lbl" style="color:var(--muted);">Total Entries</div>
+            </div>
+          </div>
+          <div class="filters">
+            <input type="text" id="purchaseSearch" placeholder="Search invoice / supplier / product...">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Invoice</th><th>Supplier</th><th>Product</th><th>Type</th>
+                  <th>Qty</th><th>Cost/Unit</th><th>Total Cost</th><th>Remarks</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="purchaseTableBody"></tbody>
+            </table>
+            <div id="purchaseEmptyState" class="empty" style="display:none;">
+              <div class="big">📦</div>
+              No purchases recorded yet. Add your first purchase above.
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="pin-overlay" id="pinOverlay" style="display:none;">
+  <div class="pin-box">
+    <div style="font-weight:700;color:var(--navy-deep);" id="pinPromptTitle">Enter Management PIN</div>
+    <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Required for this action</div>
+    <input type="password" id="pinInput" inputmode="numeric" maxlength="6" autofocus>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" id="pinCancel" style="flex:1;">Cancel</button>
+      <button class="btn-primary" id="pinConfirm" style="flex:1;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =======================================================
+   REQUIRED SETUP: paste your Apps Script Web App URL below
+   ======================================================= */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz52d-eXdmRgjzuSe69mE28OipOBy3EI8hnSD5quVFShz3kDI_stZ2hak3BerEGL0A/exec";
+
+const AUTO_REFRESH_MS = 20000; // poll every 20s for near-real-time sync across devices
+
+let records = [];         // Sales — never includes profit/costPrice unless authorized
+let reportRecords = [];   // Sales, authorized copy (with profit) — for the Monthly Report
+let reportPin = null;
+
+let purchaseRecords = []; // Purchases — only populated once the Purchase tab is unlocked
+let purchasePin = null;
+let purchaseUnlockedFlag = false;
+
+let editingId = null;          // sales entry being edited
+let editingPurchaseId = null;  // purchase entry being edited
+let currentManagementPin = null; // held briefly while editing a sales entry
+let pendingAction = null; // {type:'edit'|'delete'|'report'|'purchaseTab', id}
+
+const $ = id => document.getElementById(id);
+
+function showToast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 1800);
+}
+function fmtMoney(n){
+  return "AED " + (Number(n)||0).toLocaleString('en-AE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function statusClass(s){
+  if(s==="Paid") return "paid";
+  if(s==="Pending") return "pending";
+  return "partial";
+}
+function setSync(ok, text){
+  $("syncDot").classList.toggle("offline", !ok);
+  $("syncText").textContent = text;
+}
+function isConfigured(){
+  return APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf("https://script.google.com") === 0;
+}
+function normalizeRecord(r){
+  return {
+    ...r,
+    qty: Number(r.qty)||0,
+    costPrice: (r.costPrice===undefined || r.costPrice==="") ? null : Number(r.costPrice),
+    price: Number(r.price)||0,
+    total: Number(r.total)||0,
+    profit: r.profit===undefined ? undefined : Number(r.profit),
+    createdAt: Number(r.createdAt)||0
+  };
+}
+function normalizePurchase(r){
+  return {
+    ...r,
+    qty: Number(r.qty)||0,
+    costPrice: Number(r.costPrice)||0,
+    totalCost: Number(r.totalCost)||0,
+    createdAt: Number(r.createdAt)||0
+  };
+}
+
+// ---------- API helpers ----------
+async function apiGet(params){
+  const p = params || {};
+  const query = Object.entries(p).filter(([,v])=>v).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join("&");
+  const url = APPS_SCRIPT_URL + (query ? ("?" + query) : "");
+  const res = await fetch(url, {method:"GET"});
+  const data = await res.json();
+  if(!data.success) throw new Error(data.error||"Unknown error");
+  return data;
+}
+async function apiPost(payload){
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method:"POST",
+    headers: {"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(!data.success) throw new Error(data.error||"Unknown error");
+  return data;
+}
+
+// ---------- Tabs ----------
+$("tabBtnSales").addEventListener("click", ()=>switchTab("sales"));
+$("tabBtnPurchase").addEventListener("click", ()=>switchTab("purchase"));
+function switchTab(which){
+  const sales = which === "sales";
+  $("tabBtnSales").classList.toggle("active", sales);
+  $("tabBtnPurchase").classList.toggle("active", !sales);
+  $("tabSales").classList.toggle("active", sales);
+  $("tabPurchase").classList.toggle("active", !sales);
+  $("pageTitle").textContent = sales ? "License Sales Tracker" : "License Purchase Tracker";
+  $("statsRow").style.display = sales ? "grid" : "none";
+}
+
+// ---------- Load Sales ----------
+async function loadRecords(silent){
+  if(!isConfigured()){
+    $("configWarning").style.display = "block";
+    $("loadingNote").style.display = "none";
+    setSync(false, "Not configured");
+    return;
+  }
+  if(!silent) $("loadingNote").style.display = "block";
+  try{
+    const data = await apiGet();
+    records = (data.records||[]).map(normalizeRecord);
+    records.sort((a,b)=> (b.date||"").localeCompare(a.date||"") || b.createdAt-a.createdAt);
+    setSync(true, "Synced — " + new Date().toLocaleTimeString());
+  }catch(e){
+    console.error(e);
+    setSync(false, "Sync failed — check connection");
+    if(!silent) showToast("Could not load records");
+  }
+  $("loadingNote").style.display = "none";
+  render();
+
+  if(reportUnlockedFlag() && reportPin){
+    try{
+      const rdata = await apiGet({pin: reportPin});
+      if(rdata.authorized){
+        reportRecords = (rdata.records||[]).map(normalizeRecord);
+        renderReport();
+      }
+    }catch(e){ /* silent */ }
+  }
+
+  if(purchaseUnlockedFlag && purchasePin){
+    loadPurchases(true);
+  }
+}
+function reportUnlockedFlag(){ return $("reportUnlocked").style.display === "block"; }
+
+function calcLive(){
+  const qty = parseFloat($("f_qty").value)||0;
+  const price = parseFloat($("f_price").value)||0;
+  const cost = parseFloat($("f_cost").value);
+  const total = qty*price;
+  $("calcTotal").textContent = fmtMoney(total);
+  if(!isNaN(cost)){
+    $("calcProfit").textContent = fmtMoney(total - cost*qty);
+    $("manualProfitWrap").style.opacity = "0.45";
+  } else {
+    $("calcProfit").textContent = "— (enter cost or use manual profit)";
+    $("manualProfitWrap").style.opacity = "1";
+  }
+}
+["f_qty","f_price","f_cost"].forEach(id => $(id).addEventListener("input", calcLive));
+
+function resetForm(){
+  $("entryForm").reset();
+  $("f_date").value = new Date().toISOString().slice(0,10);
+  $("f_qty").value = 1;
+  editingId = null;
+  currentManagementPin = null;
+  $("submitBtn").textContent = "Add Entry";
+  $("cancelEdit").style.display = "none";
+  calcLive();
+}
+$("cancelEdit").addEventListener("click", resetForm);
+
+$("entryForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  if(!isConfigured()){ showToast("Setup incomplete — see warning above"); return; }
+
+  const qty = parseFloat($("f_qty").value)||0;
+  const price = parseFloat($("f_price").value)||0;
+  const cost = parseFloat($("f_cost").value);
+  const total = qty*price;
+  let profit;
+  if(!isNaN(cost)) profit = total - cost*qty;
+  else { profit = parseFloat($("f_profitManual").value); if(isNaN(profit)) profit = 0; }
+
+  const rec = {
+    id: editingId || (Date.now().toString(36)+Math.random().toString(36).slice(2,7)),
+    date: $("f_date").value,
+    invoice: $("f_invoice").value.trim(),
+    product: $("f_product").value.trim(),
+    licenseType: $("f_licensetype").value,
+    qty, salesman: $("f_salesman").value,
+    status: $("f_status").value,
+    costPrice: isNaN(cost) ? "" : cost,
+    price, total, profit,
+    remarks: $("f_remarks").value.trim(),
+    createdAt: editingId ? (records.find(r=>r.id===editingId)?.createdAt || Date.now()) : Date.now()
+  };
+
+  const btn = $("submitBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+  try{
+    const payload = { action: editingId ? "update" : "add", record: rec };
+    if(editingId) payload.pin = currentManagementPin;
+    await apiPost(payload);
+    showToast(editingId ? "Entry updated" : "Entry added");
+    resetForm();
+    await loadRecords(true);
+  }catch(err){
+    console.error(err);
+    if(err.message === "Invalid PIN") showToast("Session expired — please try editing again");
+    else showToast("Save failed — check connection");
+  }
+  btn.disabled = false;
+});
+
+function editEntry(r){
+  if(!r) return;
+  editingId = r.id;
+  $("f_date").value = r.date;
+  $("f_invoice").value = r.invoice;
+  $("f_product").value = r.product;
+  $("f_licensetype").value = r.licenseType;
+  $("f_qty").value = r.qty;
+  $("f_salesman").value = r.salesman;
+  $("f_status").value = r.status;
+  $("f_cost").value = r.costPrice ?? "";
+  $("f_price").value = r.price;
+  $("f_remarks").value = r.remarks || "";
+  $("f_profitManual").value = (r.costPrice===null||r.costPrice==="") ? r.profit : "";
+  calcLive();
+  $("submitBtn").textContent = "Save Changes";
+  $("cancelEdit").style.display = "inline-block";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+// ---------- PIN gate (shared by edit/delete/report/purchase-tab) ----------
+function requestPin(type, id){
+  pendingAction = {type, id};
+  $("pinInput").value = "";
+  $("pinOverlay").style.display = "flex";
+  setTimeout(()=>$("pinInput").focus(), 50);
+}
+$("pinCancel").addEventListener("click", ()=>{ $("pinOverlay").style.display="none"; pendingAction=null; });
+$("pinConfirm").addEventListener("click", confirmPin);
+$("pinInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") confirmPin(); });
+
+async function confirmPin(){
+  const pin = $("pinInput").value;
+  const action = pendingAction;
+  if(!action || !pin) return;
+  $("pinConfirm").disabled = true;
+
+  try{
+    if(action.type === "delete"){
+      await apiPost({ action:"delete", id: action.id, pin });
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      showToast("Entry deleted");
+      await loadRecords(true);
+
+    } else if(action.type === "edit"){
+      const verify = await apiPost({ action:"verifyPin", pin });
+      if(!verify.authorized){ showToast("Incorrect PIN"); $("pinConfirm").disabled = false; return; }
+      const data = await apiGet({pin});
+      const full = (data.records||[]).map(normalizeRecord).find(x=>x.id===action.id);
+      if(!full){ showToast("Record not found"); $("pinConfirm").disabled = false; return; }
+      currentManagementPin = pin;
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      editEntry(full);
+
+    } else if(action.type === "report"){
+      const data = await apiGet({pin});
+      if(!data.authorized){ showToast("Incorrect PIN"); $("pinConfirm").disabled = false; return; }
+      reportRecords = (data.records||[]).map(normalizeRecord);
+      reportPin = pin;
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      $("reportLocked").style.display = "none";
+      $("reportUnlocked").style.display = "block";
+      renderReport();
+
+    } else if(action.type === "purchaseTab"){
+      const verify = await apiPost({ action:"verifyPin", pin });
+      if(!verify.authorized){ showToast("Incorrect PIN"); $("pinConfirm").disabled = false; return; }
+      purchasePin = pin;
+      purchaseUnlockedFlag = true;
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      $("purchaseLockedPanel").style.display = "none";
+      $("purchaseUnlockedArea").style.display = "block";
+      $("tabBtnPurchase").textContent = "Purchase";
+      await loadPurchases(false);
+
+    } else if(action.type === "deletePurchase"){
+      await apiPost({ action:"deletePurchase", id: action.id, pin: purchasePin });
+      $("pinOverlay").style.display = "none";
+      pendingAction = null;
+      showToast("Purchase deleted");
+      await loadPurchases(true);
+    }
+  }catch(err){
+    console.error(err);
+    if(err.message === "Invalid PIN") showToast("Incorrect PIN");
+    else showToast("Connection error — try again");
+  }
+  $("pinConfirm").disabled = false;
+}
+
+// ---------- Sales filters/render ----------
+function applyFilters(list){
+  const sm = $("filterSalesman").value;
+  const st = $("filterStatus").value;
+  const q = $("filterSearch").value.trim().toLowerCase();
+  return list.filter(r=>{
+    if(sm && r.salesman!==sm) return false;
+    if(st && r.status!==st) return false;
+    if(q && !((r.invoice||"").toLowerCase().includes(q) || (r.product||"").toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+["filterSalesman","filterStatus","filterSearch"].forEach(id=>{
+  $(id).addEventListener("input", render);
+  $(id).addEventListener("change", render);
+});
+
+function render(){
+  const filtered = applyFilters(records);
+  const tbody = $("tableBody");
+  tbody.innerHTML = "";
+
+  if(filtered.length===0){
+    $("emptyState").style.display = "block";
+  } else {
+    $("emptyState").style.display = "none";
+    for(const r of filtered){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.date||""}</td>
+        <td>${r.invoice||""}</td>
+        <td>${r.product||""}</td>
+        <td>${r.licenseType||""}</td>
+        <td>${r.qty}</td>
+        <td>${r.salesman||""}</td>
+        <td>${fmtMoney(r.total)}</td>
+        <td><span class="pill ${statusClass(r.status)}">${r.status}</span></td>
+        <td class="remarks-cell">${r.remarks||""}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-danger-text" data-edit="${r.id}" style="color:var(--teal);">Edit</button>
+          <button class="btn-danger-text" data-del="${r.id}">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll("[data-edit]").forEach(b=> b.addEventListener("click", ()=>requestPin("edit", b.dataset.edit)));
+    tbody.querySelectorAll("[data-del]").forEach(b=> b.addEventListener("click", ()=>{
+      if(confirm("Delete this entry? This cannot be undone.")) requestPin("delete", b.dataset.del);
+    }));
+  }
+
+  const totalSale = records.reduce((s,r)=>s+(r.total||0),0);
+  const pending = records.filter(r=>r.status!=="Paid").reduce((s,r)=>s+(r.total||0),0);
+  $("statTotalSale").textContent = fmtMoney(totalSale);
+  $("statPending").textContent = fmtMoney(pending);
+  $("statCount").textContent = records.length;
+}
+
+$("refreshBtn").addEventListener("click", ()=>{
+  loadRecords(false);
+  if(purchaseUnlockedFlag) loadPurchases(false);
+});
+
+// ---------- Monthly Profit Report ----------
+$("unlockReportBtn").addEventListener("click", ()=>requestPin("report", null));
+$("lockReportBtn").addEventListener("click", ()=>{
+  reportPin = null;
+  $("reportLocked").style.display = "block";
+  $("reportUnlocked").style.display = "none";
+});
+$("reportMonth").addEventListener("change", renderReport);
+
+function monthKey(dateStr){ return (dateStr||"").slice(0,7); }
+function monthLabel(key){
+  if(!key) return "Unknown";
+  const [y,m] = key.split("-");
+  const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return names[parseInt(m,10)-1] + " " + y;
+}
+function buildMonthOptions(){
+  const keys = Array.from(new Set(reportRecords.map(r=>monthKey(r.date)))).filter(Boolean).sort().reverse();
+  const sel = $("reportMonth");
+  const current = sel.value;
+  sel.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = ""; allOpt.textContent = "All Months (combined)";
+  sel.appendChild(allOpt);
+  keys.forEach(k=>{
+    const opt = document.createElement("option");
+    opt.value = k; opt.textContent = monthLabel(k);
+    sel.appendChild(opt);
+  });
+  if(keys.includes(current) || current==="") sel.value = current;
+  else if(keys.length) sel.value = keys[0];
+}
+function renderReport(){
+  buildMonthOptions();
+  const selectedMonth = $("reportMonth").value;
+  const scoped = selectedMonth ? reportRecords.filter(r=>monthKey(r.date)===selectedMonth) : reportRecords;
+
+  const totalSale = scoped.reduce((s,r)=>s+(r.total||0),0);
+  const totalProfit = scoped.reduce((s,r)=>s+(r.profit||0),0);
+  $("repTotalSale").textContent = fmtMoney(totalSale);
+  $("repTotalProfit").textContent = fmtMoney(totalProfit);
+  $("repCount").textContent = scoped.length;
+
+  const bySalesman = {};
+  scoped.forEach(r=>{
+    const key = r.salesman || "Unassigned";
+    if(!bySalesman[key]) bySalesman[key] = {count:0, sale:0, profit:0};
+    bySalesman[key].count++;
+    bySalesman[key].sale += r.total||0;
+    bySalesman[key].profit += r.profit||0;
+  });
+  const smBody = $("repBySalesman");
+  smBody.innerHTML = "";
+  Object.entries(bySalesman).sort((a,b)=> b[1].profit - a[1].profit).forEach(([name, v])=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${name}</td><td>${v.count}</td><td>${fmtMoney(v.sale)}</td><td class="profit-pos">${fmtMoney(v.profit)}</td>`;
+    smBody.appendChild(tr);
+  });
+  if(Object.keys(bySalesman).length===0){
+    smBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);">No entries in this scope.</td></tr>`;
+  }
+
+  const byMonth = {};
+  reportRecords.forEach(r=>{
+    const key = monthKey(r.date) || "Unknown";
+    if(!byMonth[key]) byMonth[key] = {count:0, sale:0, profit:0};
+    byMonth[key].count++;
+    byMonth[key].sale += r.total||0;
+    byMonth[key].profit += r.profit||0;
+  });
+  const monBody = $("repAllMonths");
+  monBody.innerHTML = "";
+  Object.entries(byMonth).sort((a,b)=> b[0].localeCompare(a[0])).forEach(([key, v])=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${monthLabel(key)}</td><td>${v.count}</td><td>${fmtMoney(v.sale)}</td><td class="profit-pos">${fmtMoney(v.profit)}</td>`;
+    monBody.appendChild(tr);
+  });
+  if(Object.keys(byMonth).length===0){
+    monBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);">No data yet.</td></tr>`;
+  }
+}
+
+// ---------- Purchase tab ----------
+$("unlockPurchaseTabBtn").addEventListener("click", ()=>requestPin("purchaseTab", null));
+$("lockPurchaseBtn").addEventListener("click", ()=>{
+  purchaseUnlockedFlag = false;
+  purchasePin = null;
+  purchaseRecords = [];
+  $("purchaseLockedPanel").style.display = "block";
+  $("purchaseUnlockedArea").style.display = "none";
+  $("tabBtnPurchase").textContent = "🔒 Purchase";
+  switchTab("sales");
+});
+
+function pCalcLive(){
+  const qty = parseFloat($("p_qty").value)||0;
+  const cost = parseFloat($("p_cost").value)||0;
+  $("pCalcTotal").textContent = fmtMoney(qty*cost);
+}
+["p_qty","p_cost"].forEach(id=>$(id).addEventListener("input", pCalcLive));
+
+function resetPurchaseForm(){
+  $("purchaseForm").reset();
+  $("p_date").value = new Date().toISOString().slice(0,10);
+  $("p_qty").value = 1;
+  editingPurchaseId = null;
+  $("purchaseSubmitBtn").textContent = "Add Purchase";
+  $("purchaseCancelEdit").style.display = "none";
+  pCalcLive();
+}
+$("purchaseCancelEdit").addEventListener("click", resetPurchaseForm);
+
+$("purchaseForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  if(!purchasePin){ showToast("Purchase section locked"); return; }
+  const qty = parseFloat($("p_qty").value)||0;
+  const cost = parseFloat($("p_cost").value)||0;
+  const totalCost = qty*cost;
+
+  const rec = {
+    id: editingPurchaseId || (Date.now().toString(36)+Math.random().toString(36).slice(2,7)),
+    date: $("p_date").value,
+    invoice: $("p_invoice").value.trim(),
+    supplier: $("p_supplier").value.trim(),
+    product: $("p_product").value.trim(),
+    licenseType: $("p_licensetype").value,
+    qty, costPrice: cost, totalCost,
+    remarks: $("p_remarks").value.trim(),
+    createdAt: editingPurchaseId ? (purchaseRecords.find(r=>r.id===editingPurchaseId)?.createdAt || Date.now()) : Date.now()
+  };
+
+  const btn = $("purchaseSubmitBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+  try{
+    await apiPost({ action: editingPurchaseId ? "updatePurchase" : "addPurchase", record: rec, pin: purchasePin });
+    showToast(editingPurchaseId ? "Purchase updated" : "Purchase added");
+    resetPurchaseForm();
+    await loadPurchases(true);
+  }catch(err){
+    console.error(err);
+    showToast("Save failed — check connection");
+  }
+  btn.disabled = false;
+});
+
+function editPurchase(id){
+  const r = purchaseRecords.find(x=>x.id===id);
+  if(!r) return;
+  editingPurchaseId = id;
+  $("p_date").value = r.date;
+  $("p_invoice").value = r.invoice;
+  $("p_supplier").value = r.supplier;
+  $("p_product").value = r.product;
+  $("p_licensetype").value = r.licenseType;
+  $("p_qty").value = r.qty;
+  $("p_cost").value = r.costPrice;
+  $("p_remarks").value = r.remarks || "";
+  pCalcLive();
+  $("purchaseSubmitBtn").textContent = "Save Changes";
+  $("purchaseCancelEdit").style.display = "inline-block";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+async function loadPurchases(silent){
+  if(!purchasePin) return;
+  try{
+    const data = await apiGet({resource:"purchases", pin: purchasePin});
+    if(!data.authorized){ showToast("Purchase session expired — unlock again"); return; }
+    purchaseRecords = (data.records||[]).map(normalizePurchase);
+    purchaseRecords.sort((a,b)=> (b.date||"").localeCompare(a.date||"") || b.createdAt-a.createdAt);
+  }catch(e){
+    console.error(e);
+    if(!silent) showToast("Could not load purchases");
+  }
+  renderPurchases();
+}
+
+$("purchaseSearch").addEventListener("input", renderPurchases);
+
+function renderPurchases(){
+  const q = $("purchaseSearch").value.trim().toLowerCase();
+  const filtered = purchaseRecords.filter(r=>{
+    if(!q) return true;
+    return (r.invoice||"").toLowerCase().includes(q) ||
+           (r.supplier||"").toLowerCase().includes(q) ||
+           (r.product||"").toLowerCase().includes(q);
+  });
+
+  const tbody = $("purchaseTableBody");
+  tbody.innerHTML = "";
+  if(filtered.length===0){
+    $("purchaseEmptyState").style.display = "block";
+  } else {
+    $("purchaseEmptyState").style.display = "none";
+    for(const r of filtered){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.date||""}</td>
+        <td>${r.invoice||""}</td>
+        <td>${r.supplier||""}</td>
+        <td>${r.product||""}</td>
+        <td>${r.licenseType||""}</td>
+        <td>${r.qty}</td>
+        <td>${fmtMoney(r.costPrice)}</td>
+        <td>${fmtMoney(r.totalCost)}</td>
+        <td class="remarks-cell">${r.remarks||""}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-danger-text" data-pedit="${r.id}" style="color:var(--teal);">Edit</button>
+          <button class="btn-danger-text" data-pdel="${r.id}">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll("[data-pedit]").forEach(b=> b.addEventListener("click", ()=>editPurchase(b.dataset.pedit)));
+    tbody.querySelectorAll("[data-pdel]").forEach(b=> b.addEventListener("click", ()=>{
+      if(confirm("Delete this purchase entry? This cannot be undone.")) requestPin("deletePurchase", b.dataset.pdel);
+    }));
+  }
+
+  const totalCost = purchaseRecords.reduce((s,r)=>s+(r.totalCost||0),0);
+  $("purchTotalCost").textContent = fmtMoney(totalCost);
+  $("purchCount").textContent = purchaseRecords.length;
+}
+
+// ---------- Init ----------
+resetForm();
+resetPurchaseForm();
+loadRecords(false);
+setInterval(()=>loadRecords(true), AUTO_REFRESH_MS);
+</script>
+</body>
+</html>
